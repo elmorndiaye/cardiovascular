@@ -16,8 +16,8 @@ st.set_page_config(
 )
 
 def apply_custom_design():
-    # 1. Gestion de l'image d'arrière-plan locale (bg_cardio.png)
-    image_path = Path("bg_cardio.png")
+    # 1. Gestion de l'image d'arrière-plan locale (image.jpg)
+    image_path = Path("image.jpg")
     if image_path.exists():
         with open(image_path, "rb") as f:
             data = f.read()
@@ -157,3 +157,4 @@ else:
             else: st.error("Erreur API")
 
         except: st.error("L'API ne répond pas. Lancez 'uvicorn api:app'.")
+
