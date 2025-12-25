@@ -1,0 +1,30 @@
+/* Cartes blanches semi-transparentes pour la lisibilité sur fond flou */
+[data-testid="stForm"], div[data-testid="stMetric"], .stPlotlyChart {
+    background-color: rgba(255, 255, 255, 0.88) !important;
+    padding: 25px !important;
+    border-radius: 15px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(4px);
+}
+
+/* Sidebar stylisée */
+[data-testid="stSidebar"] {
+    background-color: rgba(15, 23, 42, 0.98) !important;
+    color: white !important;
+}
+
+[data-testid="stSidebar"] h1 {
+    color: #28a745 !important;
+    font-size: 2rem !important;
+    margin-bottom: 0px !important;
+}
+
+/* Boutons */
+.stButton>button {
+    background-color: #28a745 !important;
+    color: white !important;
+    border-radius: 10px !important;
+    font-weight: bold !important;
+    border: none !important;
+}
