@@ -1,5 +1,5 @@
 import streamlit as st
-import pd as pd
+import pandas as pd
 import numpy as np
 import plotly.express as px
 import requests
@@ -155,4 +155,5 @@ else:
                 else:
                     st.success(f"✅ Risque faible ({data['probability']*100:.1f}%)")
             else: st.error("Erreur API")
+
         except: st.error("L'API ne répond pas. Lancez 'uvicorn api:app'.")
