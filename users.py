@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import requests
 import base64
+import joblib
 from pathlib import Path
 
 # ============================================================================
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 def apply_custom_design():
-    # 1. Gestion de l'image d'arrière-plan locale (image.jpg)
+    # Gestion de l'image d'arrière-plan locale
     image_path = Path("image.jpg")
     if image_path.exists():
         with open(image_path, "rb") as f:
@@ -44,7 +44,6 @@ def apply_custom_design():
             unsafe_allow_html=True
         )
 
-    # 2. Chargement du CSS externe
     css_file = Path("style.css")
     if css_file.exists():
         with open(css_file) as f:
@@ -53,20 +52,17 @@ def apply_custom_design():
 apply_custom_design()
 
 # ============================================================================
-# BARRE LATÉRALE (SIDEBAR) - AJOUT DU NOM ET TEXTE
+# CHARGEMENT DU MODÈLE ET DES DONNÉES
 # ============================================================================
-st.sidebar.markdown("# 🫀 CardioAI")
-st.sidebar.markdown("""
-**Assistant Intelligent** Analyse des risques cardiovasculaires basée sur l'IA pour un suivi préventif et rapide.
-""")
-st.sidebar.markdown("---")
+@st.cache_resource
+def load_prediction_model():
+    model_path = Path("random_forest_model.pkl")
+    if model_path.exists():
+        return joblib.load(model_path)
+    return None
 
-# Navigation
-page = st.sidebar.selectbox("Navigation", ["Exploration", "Prédiction et Conseils"])
+model = load_prediction_model()
 
-# ============================================================================
-# LOGIQUE DE CHARGEMENT (ORIGINALE)
-# ============================================================================
 @st.cache_data
 def load_data():
     file_path = Path("cardio_train.csv")
@@ -84,6 +80,14 @@ def load_data():
     return df
 
 df = load_data()
+
+# ============================================================================
+# BARRE LATÉRALE
+# ============================================================================
+st.sidebar.markdown("# 🫀 CardioAI")
+st.sidebar.markdown("**Assistant Intelligent** : Analyse des risques cardiovasculaires basée sur l'IA.")
+st.sidebar.markdown("---")
+page = st.sidebar.selectbox("Navigation", ["Exploration", "Prédiction et Conseils"])
 
 # ============================================================================
 # PAGE EXPLORATION
@@ -105,17 +109,19 @@ if page == "Exploration":
             chart = st.radio("Graphique", ["Histogramme", "Boxplot"])
         with c2:
             colors = {0: "#1e293b", 1: "#28a745"}
-            if chart == "Histogramme":
-                fig = px.histogram(df, x=selected_col, color="cardio", color_discrete_map=colors)
-            else:
-                fig = px.box(df, y=selected_col, x="cardio", color="cardio", color_discrete_map=colors)
+            fig = px.histogram(df, x=selected_col, color="cardio", color_discrete_map=colors) if chart == "Histogramme" else px.box(df, y=selected_col, x="cardio", color="cardio", color_discrete_map=colors)
             st.plotly_chart(fig, use_container_width=True)
 
 # ============================================================================
-# PAGE PRÉDICTION
+# PAGE PRÉDICTION (LOGIQUE DIRECTE SANS API)
 # ============================================================================
 else:
     st.title("🧪 Prédiction du Risque")
+    
+    if model is None:
+        st.error("❌ Fichier 'random_forest_model.pkl' introuvable dans le dépôt GitHub.")
+        st.stop()
+
     with st.form("prediction_form"):
         c1, c2 = st.columns(2)
         with c1:
@@ -140,21 +146,21 @@ else:
         submitted = st.form_submit_button("🚀 Lancer l'analyse", use_container_width=True)
 
     if submitted:
-        payload = {
-            "age": age * 365, "gender": 1 if gender == "Femme" else 2,
-            "height": height, "weight": weight, "ap_hi": systolic, "ap_lo": diastolic,
-            "cholesterol": cholesterol, "gluc": gluc, "smoke": int(smoke), "alco": int(alco), "active": int(active)
-        }
-        try:
-            res = requests.post("http://127.0.0.1:8000/predict", json=payload, timeout=5)
-            if res.status_code == 200:
-                data = res.json()
-                st.markdown("---")
-                if data["prediction"] == 1:
-                    st.error(f"⚠️ Risque élevé ({data['probability']*100:.1f}%)")
-                else:
-                    st.success(f"✅ Risque faible ({data['probability']*100:.1f}%)")
-            else: st.error("Erreur API")
+        # Préparation des données pour le modèle
+        # Ordre des colonnes : age (jours), gender, height, weight, ap_hi, ap_lo, cholesterol, gluc, smoke, alco, active
+        features = np.array([[
+            age * 365.25, 
+            1 if gender == "Femme" else 2, 
+            height, weight, systolic, diastolic, 
+            cholesterol, gluc, int(smoke), int(alco), int(active)
+        ]])
 
-        except: st.error("L'API ne répond pas. Lancez 'uvicorn api:app'.")
+        prediction = model.predict(features)[0]
+        probability = model.predict_proba(features)[0][1]
 
+        st.markdown("---")
+        if prediction == 1:
+            st.error(f"⚠️ **Risque élevé détecté** (Probabilité : {probability*100:.1f}%)")
+        else:
+            st.success(f"✅ **Risque faible détecté** (Probabilité : {probability*100:.1f}%)")
+            st.balloons()
