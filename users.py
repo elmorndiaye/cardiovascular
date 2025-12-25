@@ -7,7 +7,7 @@ import joblib
 from pathlib import Path
 
 # ============================================================================
-# CONFIGURATION ET DESIGN
+# 1. CONFIGURATION ET DESIGN (CSS & BACKGROUND)
 # ============================================================================
 st.set_page_config(
     page_title="CardioAI",
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 def apply_custom_design():
-    # Utilisation de votre image 'cardi.jpeg'
+    # Gestion de l'image d'arrière-plan 'cardi.jpeg'
     image_path = Path("cardi.jpeg")
     if image_path.exists():
         with open(image_path, "rb") as f:
@@ -32,8 +32,8 @@ def apply_custom_design():
                 background-image: url("data:image/jpeg;base64,{encoded}");
                 background-size: cover;
                 background-position: center;
-                filter: blur(12px);
-                -webkit-filter: blur(12px);
+                filter: blur(15px);
+                -webkit-filter: blur(15px);
                 z-index: -1;
                 opacity: 0.3;
             }}
@@ -44,6 +44,7 @@ def apply_custom_design():
             unsafe_allow_html=True
         )
 
+    # Chargement du fichier style.css pour les cartes blanches
     css_file = Path("style.css")
     if css_file.exists():
         with open(css_file) as f:
@@ -52,12 +53,14 @@ def apply_custom_design():
 apply_custom_design()
 
 # ============================================================================
-# CHARGEMENT DES RESSOURCES
+# 2. CHARGEMENT DU MODÈLE ET DES DONNÉES
 # ============================================================================
 @st.cache_resource
 def load_prediction_model():
     model_path = Path("random_forest_model.pkl")
-    return joblib.load(model_path) if model_path.exists() else None
+    if model_path.exists():
+        return joblib.load(model_path)
+    return None
 
 model = load_prediction_model()
 
@@ -70,100 +73,139 @@ def load_data():
     except:
         df = pd.read_csv(file_path)
     
+    # Nettoyage et création de variables
     df["imc"] = df["weight"] / ((df["height"] / 100) ** 2)
     if "age" in df.columns and df["age"].mean() > 200:
-        df["age"] = (df["age"] / 365).round(0).astype(int)
+        df["age"] = (df["age"] / 365.25).round(0).astype(int)
+    
     return df
 
 df = load_data()
 
 # ============================================================================
-# BARRE LATÉRALE - PRÉDICTION PAR DÉFAUT
+# 3. BARRE LATÉRALE (SIDEBAR)
 # ============================================================================
 st.sidebar.markdown("# 🫀 CardioAI")
-st.sidebar.markdown("**Assistant Santé Intelligent**")
+st.sidebar.markdown("""
+**Assistant Santé Intelligent**
+Analyse prédictive des risques cardiaques.
+""")
 st.sidebar.markdown("---")
 
-# index=0 place "Prédiction et Conseils" en premier (par défaut)
+# Navigation : La prédiction est la page par défaut (index 0)
 page = st.sidebar.selectbox(
-    "Navigation", 
-    ["Prédiction et Conseils", "Exploration et Corrélations"],
-    index=0 
+    "Menu de l'application", 
+    ["Prédiction et Diagnostic", "Exploration des données"],
+    index=0
 )
 
 # ============================================================================
-# PAGE PRÉDICTION (PAR DÉFAUT)
+# 4. PAGE : PRÉDICTION ET DIAGNOSTIC (PAR DÉFAUT)
 # ============================================================================
-if page == "Prédiction et Conseils":
-    st.title("🧪 Analyse du Risque Cardiovasculaire")
+if page == "Prédiction et Diagnostic":
+    st.title("🧪 Analyse du Risque Personnalisée")
     
     if model is None:
-        st.error("❌ Modèle 'random_forest_model.pkl' introuvable.")
+        st.error("⚠️ Erreur : Le fichier 'random_forest_model.pkl' est introuvable sur le serveur.")
         st.stop()
 
-    with st.form("prediction_form"):
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("### 👤 Profil")
-            age = st.slider("Âge (années)", 18, 100, 50)
+    with st.form("main_prediction_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 👤 Profil Physique")
+            age_ans = st.slider("Âge (années)", 18, 100, 50)
             gender = st.selectbox("Sexe", ["Homme", "Femme"])
-            height = st.slider("Taille (cm)", 140, 210, 170)
-            weight = st.slider("Poids (kg)", 40, 150, 70)
-        with c2:
-            st.markdown("### 🩺 Constantes")
-            systolic = st.slider("Pression systolique", 80, 250, 120)
-            diastolic = st.slider("Pression diastolique", 50, 150, 80)
-            cholesterol = st.select_slider("Cholestérol", options=[1, 2, 3], format_func=lambda x: {1:"Normal", 2:"Élevé", 3:"Très élevé"}[x])
+            h = st.slider("Taille (cm)", 140, 210, 170)
+            w = st.slider("Poids (kg)", 40, 150, 75)
+        
+        with col2:
+            st.markdown("### 🩺 Paramètres Médicaux")
+            sys = st.slider("Pression Systolique (Max)", 80, 220, 120)
+            dia = st.slider("Pression Diastolique (Min)", 40, 120, 80)
+            chol = st.select_slider("Cholestérol", options=[1, 2, 3], format_func=lambda x: {1:"Normal", 2:"Élevé", 3:"Très élevé"}[x])
             gluc = st.select_slider("Glucose", options=[1, 2, 3], format_func=lambda x: {1:"Normal", 2:"Élevé", 3:"Très élevé"}[x])
         
-        st.markdown("### 🚬 Mode de vie")
-        l1, l2, l3 = st.columns(3)
-        smoke = l1.checkbox("Fumeur")
-        alco = l2.checkbox("Alcool")
-        active = l3.checkbox("Activité Physique")
+        st.markdown("### 🏃 Mode de Vie")
+        c3a, c3b, c3c = st.columns(3)
+        smk = c3a.checkbox("Fumeur")
+        alc = c3b.checkbox("Consommation d'alcool")
+        act = c3c.checkbox("Activité physique régulière")
         
-        submitted = st.form_submit_button("🚀 Lancer le diagnostic", use_container_width=True)
+        btn = st.form_submit_button("Lancer l'Analyse IA", use_container_width=True)
 
-    if submitted:
-        features = np.array([[age*365.25, 1 if gender=="Femme" else 2, height, weight, systolic, diastolic, cholesterol, gluc, int(smoke), int(alco), int(active)]])
-        prob = model.predict_proba(features)[0][1]
-        
+    if btn:
+        # Préparation des données pour le modèle
+        # Format attendu : age(jours), gender, height, weight, ap_hi, ap_lo, cholesterol, gluc, smoke, alco, active
+        input_data = np.array([[
+            age_ans * 365.25, 
+            1 if gender == "Femme" else 2, 
+            h, w, sys, dia, chol, gluc, 
+            int(smk), int(alc), int(act)
+        ]])
+
+        prediction = model.predict(input_data)[0]
+        probability = model.predict_proba(input_data)[0][1]
+
         st.markdown("---")
-        if prob > 0.5:
-            st.error(f"⚠️ **Risque élevé** : {prob*100:.1f}%")
-        else:
-            st.success(f"✅ **Risque faible** : {prob*100:.1f}%")
+        st.subheader("📊 Résultats de l'analyse")
+
+        # Affichage des visuels après prédiction
+        res_col1, res_col2 = st.columns([1, 1.5])
+        
+        with res_col1:
+            # Graphique de Jauge (Donut)
+            fig_gauge = px.pie(
+                values=[probability, 1-probability], 
+                names=["Risque", "Sain"],
+                hole=0.7,
+                color_discrete_sequence=["#e74c3c" if probability > 0.5 else "#27ae60", "#f8f9fa"]
+            )
+            fig_gauge.update_traces(textinfo='none')
+            st.plotly_chart(fig_gauge, use_container_width=True)
+            
+            if prediction == 1:
+                st.error(f"**Risque élevé : {probability*100:.1f}%**")
+            else:
+                st.success(f"**Risque faible : {probability*100:.1f}%**")
+
+        with res_col2:
+            st.markdown("#### Comparaison de vos constantes")
+            # Petit graphique de comparaison
+            comp_df = pd.DataFrame({
+                "Paramètres": ["Pression Systolique", "Pression Diastolique"],
+                "Vos valeurs": [sys, dia],
+                "Cible idéale": [120, 80]
+            }).set_index("Paramètres")
+            st.bar_chart(comp_df)
+            
+            if probability < 0.5:
+                st.balloons()
 
 # ============================================================================
-# PAGE EXPLORATION ET CORRÉLATIONS
+# 5. PAGE : EXPLORATION ET CORRÉLATIONS
 # ============================================================================
 else:
-    st.title("📊 Analyses et Corrélations")
+    st.title("📊 Analyse Globale des Données")
     
     if not df.empty:
-        st.subheader("🔗 Corrélation avec la variable cible (Cardio)")
-        
-        # Calcul de la corrélation
-        corr_matrix = df.corr()[['cardio']].sort_values(by='cardio', ascending=False)
+        st.subheader("🔗 Corrélation avec le risque cardiaque")
+        # Calcul des corrélations numériques uniquement
+        numeric_df = df.select_dtypes(include=[np.number])
+        correlations = numeric_df.corr()['cardio'].sort_values(ascending=False).drop('cardio')
         
         fig_corr = px.bar(
-            corr_matrix, 
-            x=corr_matrix.index, 
-            y='cardio',
-            title="Impact des variables sur le risque cardiaque",
-            labels={'index': 'Variables', 'cardio': 'Coefficient de Corrélation'},
-            color='cardio',
+            x=correlations.index, 
+            y=correlations.values,
+            labels={'x': 'Variables', 'y': 'Force du lien'},
+            title="Quels facteurs influencent le plus le risque ?",
+            color=correlations.values,
             color_continuous_scale='RdYlGn_r'
         )
         st.plotly_chart(fig_corr, use_container_width=True)
         
-        st.info("💡 Plus la barre est haute, plus la variable a une influence directe sur le risque cardiovasculaire.")
-        
+
         st.markdown("---")
-        st.subheader("📈 Distributions interactives")
-        col_sel, col_graph = st.columns([1, 3])
-        with col_sel:
-            var = st.selectbox("Choisir une variable", df.columns)
-        with col_graph:
-            fig_hist = px.histogram(df, x=var, color="cardio", barmode="overlay", color_discrete_map={0:"#1e293b", 1:"#28a745"})
-            st.plotly_chart(fig_hist, use_container_width=True)
+        st.subheader("🕵️ Exploration individuelle")
+        sel_var = st.selectbox("Sélectionner une variable pour voir sa distribution :", correlations.index)
+        fig_dist = px.histogram(df, x=sel_var, color="cardio", barmode="overlay", color_discrete_map={0:"#1e293b", 1:"#27ae60"})
+        st.plotly_chart(fig_dist, use_container_width=True)
