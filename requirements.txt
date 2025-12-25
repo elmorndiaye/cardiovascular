@@ -1,7 +1,7 @@
 streamlit
 pandas
 numpy
+plotly
+requests
 scikit-learn
-streamlit-option-menu
-openai
-python-dotenv
+joblib
